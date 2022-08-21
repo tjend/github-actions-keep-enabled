@@ -1,0 +1,27 @@
+# keep all github actions workflows enabled for this repo - using github api
+name: github actions keep enabled
+
+on:
+  schedule:
+    - cron: '1 1 * * 1' # weekly on Mondays at 1:01
+  workflow_dispatch: # allow running job manually
+
+jobs:
+  github-actions-keep-enabled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get workflows for this repo
+        run: |
+          # list first 100 repo workflows
+          WORKFLOWS=$(curl --header "Accept: applicaton/vnd.github.v3+json" --show-error --silent "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows?per_page=100&page=1")
+          # debug
+          echo "${WORKFLOWS}"
+          # save WORKFLOWS to a file to be accessible in the next step
+          echo "${WORKFLOWS}" > workflows.json
+      - name: enable workflows for this repo
+        run: |
+          for WORKFLOW_ID in $(cat workflows.json | jq .workflows[].id); do
+            echo "Enabling workflow id ${WORKFLOW_ID}."
+            # using --include to show response headers
+            curl --header "Accept: applicaton/vnd.github.v3+json" --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --include --request "PUT" --show-error --silent "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW_ID}/enable"
+          done
